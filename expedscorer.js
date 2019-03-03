@@ -52,7 +52,7 @@ function p(){
                     context      = ".tab_expedscorer .expedNumBox_"+worldNum,
                     parentCheck  = true;
                     self.exped_filters = [];
-                    $(".expedNum .expedCheck   input",context).each(function(i,x){ parentCheck &= $(x).prop("checked"); 
+                    $(".expedNum .expedCheck   input",context).each(function(i,x){ parentCheck &= $(x).prop("checked");
                     });
                     $(".expedWhole .expedCheck input",context).prop("checked",parentCheck);
                 }).on("click", ".expedWhole .expedCheck input", function() {
@@ -122,6 +122,7 @@ function p(){
                     $('<td></td>').text(curVal.equipment.toFixed(3)).appendTo(row);
                     $('<td></td>').text(curVal.resourceScore.toFixed(0)).appendTo(row);
                     $('<td></td>').text(curVal.resourceSum.toFixed(0)).appendTo(row);
+                    $('<td></td>').text(curVal.expedTimes).appendTo(row);
                     resultTable.append( row );
 
                 }
@@ -129,9 +130,9 @@ function p(){
                 var unitTimes = $(".tab_expedscorer .results .unitTime");
                     unitTimes.each(function() {
                         var str = "hr";
-                        if (afkTime > 0) {
-                            str = afkHH + "h" + afkMM + "m";
-                        }
+                        // if (afkTime > 0) {
+                        //     str = afkHH + "h" + afkMM + "m";
+                        // }
                         $(this).empty();
                         $(this).append(str);
                     });
@@ -164,6 +165,12 @@ function getExpedMinutesTime(exped) {
     return 60 * exped.time.h + 1 * exped.time.m;
 }
 
+function getExpedTextTime(exped) {
+    if (exped.time.h > 0)
+        return exped.time.h.concat("h", exped.time.m,"m");
+    return exped.time.m.concat("m"); 
+}
+
 function calcWithExpeditionIdsFleetCountJS(fleetCount, priorityManpower, priorityAmmo, priorityRation, priorityPart, selectedItems, afkTime, fleetGreatSuccess,
         priorityQuickRepair, priorityQuickDone, priorityContract, priorityEquipment, selectedFixedItems) {
     var expeds = [];
@@ -187,24 +194,24 @@ function calcWithExpeditionIdsFleetCountJS(fleetCount, priorityManpower, priorit
 
     var perUnitTime = 60;
     var ids = selectedItems;
-    if (afkTime > 0) {
-        ids = [];
-        selectedItems.forEach(function(val) {
-            var grepList = $.grep(expeds, function(e){ return e.id == val; });
-            var exped = grepList[0];
-
-            var expedTime = getExpedMinutesTime(exped);
-            if (getExpedMinutesTime(exped) > afkTime) {
-                if (expedTime % afkTime == 0) {
-                    ids.push(val);
-                } else {
-                    //ids.push(val);
-                }
-            } else {
-                ids.push(val);
-            }
-        });
-    }
+    // if (afkTime > 0) {
+    //     ids = [];
+    //     selectedItems.forEach(function(val) {
+    //         var grepList = $.grep(expeds, function(e){ return e.id == val; });
+    //         var exped = grepList[0];
+    //
+    //         var expedTime = getExpedMinutesTime(exped);
+    //         if (getExpedMinutesTime(exped) > afkTime) {
+    //             if (expedTime % afkTime == 0) {
+    //                 ids.push(val);
+    //             } else {
+    //                 //ids.push(val);
+    //             }
+    //         } else {
+    //             ids.push(val);
+    //         }
+    //     });
+    // }
 
     ids = $(ids).not(selectedFixedItems).get();
     idset = combine(ids, fleetCount - selectedFixedItems.length, selectedFixedItems);
@@ -221,7 +228,9 @@ function calcWithExpeditionIdsFleetCountJS(fleetCount, priorityManpower, priorit
         eCombine.equipment = 0.0;
         eCombine.resourceScore = 0.0;
         eCombine.resourceSum = 0.0;
+        eCombine.expedTimes = "";
         tIds = [];
+        expTimes = [];
         for (var i = 0; i < val.length; ++i) {
             tIds.push(idToCommonCalledId(val[i]));
             var grepList = $.grep(expeds, function(e){ return e.id == val[i]; });
@@ -241,45 +250,17 @@ function calcWithExpeditionIdsFleetCountJS(fleetCount, priorityManpower, priorit
             var incomeContract = 0.0;
             var incomeEquipment = 0.0;
             var expedTime = getExpedMinutesTime(exped);
+            expTimes.push(getExpedTextTime(exped));
 
-            if (afkTime > 0) {
-                if (getExpedMinutesTime(exped) > afkTime) {
-                    incomeManpower = 1 * exped.manpower / expedTime * afkTime;
-                    incomeAmmo = 1 * exped.ammo / expedTime * afkTime;
-                    incomeRation = 1 * exped.ration / expedTime * afkTime;
-                    incomePart = 1 * exped.part / expedTime * afkTime;
+            incomeManpower = 1 * exped.manpower / (expedTime + afkTime) * perUnitTime;
+            incomeAmmo = 1* exped.ammo / (expedTime + afkTime) * perUnitTime;
+            incomeRation = 1 * exped.ration / (expedTime + afkTime) * perUnitTime;
+            incomePart = 1 * exped.part / (expedTime + afkTime) * perUnitTime;
 
-                    incomeQuickRepair = incomeItem(exped.quickRepair, expedItemCount, fleetGreatSuccess) / expedTime * afkTime;
-                    incomeQuickDone = incomeItem(exped.quickDone, expedItemCount, fleetGreatSuccess) / expedTime * afkTime;
-                    incomeContract = incomeItem(exped.contract, expedItemCount, fleetGreatSuccess) / expedTime * afkTime;
-                    incomeEquipment = incomeItem(exped.equipment, expedItemCount, fleetGreatSuccess) / expedTime * afkTime;
-                } else {
-                    incomeManpower = 1 * exped.manpower;
-                    incomeAmmo = 1 * exped.ammo;
-                    incomeRation = 1 * exped.ration;
-                    incomePart = 1 * exped.part;
-
-                    incomeQuickRepair = incomeItem(exped.quickRepair, expedItemCount, fleetGreatSuccess);
-                    incomeQuickDone = incomeItem(exped.quickDone, expedItemCount, fleetGreatSuccess);
-                    incomeContract = incomeItem(exped.contract, expedItemCount, fleetGreatSuccess);
-                    incomeEquipment = incomeItem(exped.equipment, expedItemCount, fleetGreatSuccess);
-                }
-
-                //incomeManpower = incomeManpower / afkTime * perUnitTime;
-                //incomeAmmo = incomeAmmo / afkTime * perUnitTime;
-                //incomeRation = incomeRation / afkTime * perUnitTime;
-                //incomePart = incomePart / afkTime * perUnitTime;
-            } else {
-                incomeManpower = 1 * exped.manpower / expedTime * perUnitTime;
-                incomeAmmo = 1* exped.ammo / expedTime * perUnitTime;
-                incomeRation = 1 * exped.ration / expedTime * perUnitTime;
-                incomePart = 1 * exped.part / expedTime * perUnitTime;
-
-                incomeQuickRepair = incomeItem(exped.quickRepair, expedItemCount, fleetGreatSuccess) / expedTime * perUnitTime;
-                incomeQuickDone = incomeItem(exped.quickDone, expedItemCount, fleetGreatSuccess) / expedTime * perUnitTime;
-                incomeContract = incomeItem(exped.contract, expedItemCount, fleetGreatSuccess) / expedTime * perUnitTime;
-                incomeEquipment = incomeItem(exped.equipment, expedItemCount, fleetGreatSuccess) / expedTime * perUnitTime;
-            }
+            incomeQuickRepair = incomeItem(exped.quickRepair, expedItemCount, fleetGreatSuccess) / (expedTime + afkTime) * perUnitTime;
+            incomeQuickDone = incomeItem(exped.quickDone, expedItemCount, fleetGreatSuccess) / (expedTime + afkTime) * perUnitTime;
+            incomeContract = incomeItem(exped.contract, expedItemCount, fleetGreatSuccess) / (expedTime + afkTime) * perUnitTime;
+            incomeEquipment = incomeItem(exped.equipment, expedItemCount, fleetGreatSuccess) / (expedTime + afkTime) * perUnitTime;
 
             eCombine.manpower += incomeManpower;
             eCombine.ammo += incomeAmmo;
@@ -304,6 +285,7 @@ function calcWithExpeditionIdsFleetCountJS(fleetCount, priorityManpower, priorit
         }
 
         eCombine.eIds = tIds.join(", ");
+        eCombine.expedTimes = expTimes.join(", ");
         result.push(eCombine);
     });
 
